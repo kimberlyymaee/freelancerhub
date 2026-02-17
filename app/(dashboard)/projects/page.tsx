@@ -2,9 +2,9 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { ProjectTable } from "@/components/projects/project-table";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import Link from "next/link";
+import { NewProjectDialog } from "@/components/projects/new-project-dialog";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { projectImportConfig } from "@/lib/import/configs/projects";
 
 export default async function ProjectsPage() {
   const session = await auth();
@@ -30,12 +30,24 @@ export default async function ProjectsPage() {
   return (
     <>
       <Header title="Projects" userName={profile?.full_name} userEmail={session?.user?.email}>
-        <Link href="/projects?new=true">
-          <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Button>
-        </Link>
+        <ImportDialog
+          config={projectImportConfig}
+          userId={session!.user.id}
+          fkData={[
+            {
+              tableName: "clients",
+              entries: (clients ?? []).map((c) => ({
+                display: c.company_name,
+                id: c.id,
+              })),
+            },
+          ]}
+        />
+        <NewProjectDialog
+          clients={clients ?? []}
+          userId={session!.user.id}
+          defaultRate={profile?.default_hourly_rate}
+        />
       </Header>
       <div className="p-4 md:p-6">
         <ProjectTable

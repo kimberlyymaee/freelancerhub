@@ -22,13 +22,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Mail, Phone, MapPin } from "lucide-react";
+import { Pencil, Trash2, Mail, Phone, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { STATUS_COLORS } from "@/lib/constants";
 import type { Client, Project, Invoice } from "@/lib/types";
 import { ClientForm } from "./client-form";
+
+const PAGE_SIZE = 10;
 
 interface ClientDetailProps {
   client: Client;
@@ -46,6 +48,13 @@ export function ClientDetail({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [projectsPage, setProjectsPage] = useState(0);
+  const [invoicesPage, setInvoicesPage] = useState(0);
+
+  const projectsTotalPages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
+  const paginatedProjects = projects.slice(projectsPage * PAGE_SIZE, (projectsPage + 1) * PAGE_SIZE);
+  const invoicesTotalPages = Math.max(1, Math.ceil(invoices.length / PAGE_SIZE));
+  const paginatedInvoices = invoices.slice(invoicesPage * PAGE_SIZE, (invoicesPage + 1) * PAGE_SIZE);
 
   const totalRevenue = invoices
     .filter((inv) => inv.status === "paid")
@@ -69,19 +78,6 @@ export function ClientDetail({
 
   function formatStatus(status: string): string {
     return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-  }
-
-  if (editing) {
-    return (
-      <div className="max-w-2xl">
-        <div className="mb-4">
-          <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-            Cancel Editing
-          </Button>
-        </div>
-        <ClientForm userId={userId} client={client} />
-      </div>
-    );
   }
 
   return (
@@ -182,6 +178,7 @@ export function ClientDetail({
               No projects for this client yet.
             </p>
           ) : (
+            <>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -195,7 +192,7 @@ export function ClientDetail({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projects.map((project) => (
+                  {paginatedProjects.map((project) => (
                     <TableRow
                       key={project.id}
                       className="cursor-pointer"
@@ -225,6 +222,25 @@ export function ClientDetail({
                 </TableBody>
               </Table>
             </div>
+            {projects.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {projectsPage * PAGE_SIZE + 1}–{Math.min((projectsPage + 1) * PAGE_SIZE, projects.length)} of {projects.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setProjectsPage((p) => p - 1)} disabled={projectsPage === 0}>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">{projectsPage + 1} / {projectsTotalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setProjectsPage((p) => p + 1)} disabled={projectsPage >= projectsTotalPages - 1}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </TabsContent>
 
@@ -234,6 +250,7 @@ export function ClientDetail({
               No invoices for this client yet.
             </p>
           ) : (
+            <>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -245,7 +262,7 @@ export function ClientDetail({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((inv) => (
+                  {paginatedInvoices.map((inv) => (
                     <TableRow
                       key={inv.id}
                       className="cursor-pointer"
@@ -271,9 +288,49 @@ export function ClientDetail({
                 </TableBody>
               </Table>
             </div>
+            {invoices.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {invoicesPage * PAGE_SIZE + 1}–{Math.min((invoicesPage + 1) * PAGE_SIZE, invoices.length)} of {invoices.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setInvoicesPage((p) => p - 1)} disabled={invoicesPage === 0}>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">{invoicesPage + 1} / {invoicesTotalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setInvoicesPage((p) => p + 1)} disabled={invoicesPage >= invoicesTotalPages - 1}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>
+              Update the details for {client.company_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <ClientForm
+            userId={userId}
+            client={client}
+            variant="modal"
+            onSuccess={() => {
+              setEditing(false);
+              router.refresh();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>

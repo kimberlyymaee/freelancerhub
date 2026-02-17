@@ -15,6 +15,7 @@ export interface Profile {
   default_payment_terms: string | null;
   default_invoice_notes: string | null;
   invoice_prefix: string;
+  payment_methods: PaymentMethodConfig[];
   created_at: string;
   updated_at: string;
 }
@@ -137,6 +138,13 @@ export type PaymentMethod =
   | "maya"
   | "wise"
   | "other";
+
+export interface PaymentMethodConfig {
+  type: PaymentMethod;
+  label: string;
+  details: string;
+  enabled: boolean;
+}
 
 export interface Expense {
   id: string;

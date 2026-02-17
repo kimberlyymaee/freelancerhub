@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Play, Square, Loader2 } from "lucide-react";
+import { Play, Square, Loader2, Clock } from "lucide-react";
 import type { Project } from "@/lib/types";
 
 const TIMER_KEY = "freelancehub_timer";
@@ -120,27 +120,86 @@ export function Timer({ projects, userId, onSave }: TimerProps) {
     setSaving(false);
   }
 
-  function formatElapsed(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  }
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+
+  const selectedProject = projects.find((p) => p.id === projectId);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Timer</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-center">
-          <p className="text-4xl font-mono font-bold tabular-nums">
-            {formatElapsed(elapsed)}
-          </p>
+    <Card className="overflow-hidden flex flex-col">
+      {/* Timer display area */}
+      <div
+        className={`px-6 pt-6 pb-5 transition-colors duration-500 ${
+          running
+            ? "bg-emerald-50 dark:bg-emerald-950/30"
+            : ""
+        }`}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div
+              className={`rounded-full p-1.5 ${
+                running
+                  ? "bg-emerald-500 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-medium">
+              {running ? "Tracking time" : "Timer"}
+            </span>
+          </div>
+          {running && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+          )}
         </div>
 
-        <div className="space-y-2">
-          <Label>Project</Label>
+        <div className="flex items-center justify-center gap-3">
+          {[
+            { value: h.toString().padStart(2, "0"), label: "hrs" },
+            { value: m.toString().padStart(2, "0"), label: "min" },
+            { value: s.toString().padStart(2, "0"), label: "sec" },
+          ].map((unit, i) => (
+            <div key={unit.label} className="flex items-center gap-3">
+              {i > 0 && (
+                <span className="text-2xl font-light text-muted-foreground">
+                  :
+                </span>
+              )}
+              <div className="text-center">
+                <p
+                  className={`text-5xl font-mono font-bold tabular-nums leading-none ${
+                    running ? "text-emerald-700 dark:text-emerald-400" : ""
+                  }`}
+                >
+                  {unit.value}
+                </p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+                  {unit.label}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {running && selectedProject && (
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            {selectedProject.name}
+            {selectedProject.client &&
+              ` — ${selectedProject.client.company_name}`}
+          </p>
+        )}
+      </div>
+
+      {/* Controls */}
+      <CardContent className="pt-4 space-y-3 flex-1 flex flex-col">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Project</Label>
           <Select
             value={projectId}
             onValueChange={setProjectId}
@@ -161,8 +220,10 @@ export function Timer({ projects, userId, onSave }: TimerProps) {
         </div>
 
         {running && (
-          <div className="space-y-2">
-            <Label htmlFor="timer-desc">Description</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="timer-desc" className="text-xs">
+              Description
+            </Label>
             <Input
               id="timer-desc"
               value={description}
@@ -176,7 +237,7 @@ export function Timer({ projects, userId, onSave }: TimerProps) {
           <Button
             onClick={stopTimer}
             variant="destructive"
-            className="w-full"
+            className="w-full mt-auto"
             disabled={saving}
           >
             {saving ? (
@@ -187,7 +248,7 @@ export function Timer({ projects, userId, onSave }: TimerProps) {
             Stop & Save
           </Button>
         ) : (
-          <Button onClick={startTimer} className="w-full">
+          <Button onClick={startTimer} className="w-full mt-auto">
             <Play className="mr-2 h-4 w-4" />
             Start Timer
           </Button>

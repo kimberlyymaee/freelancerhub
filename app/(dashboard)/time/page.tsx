@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { TimePage as TimePageClient } from "@/components/time/time-page";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { timeEntryImportConfig } from "@/lib/import/configs/time-entries";
 
 export default async function TimePage() {
   const session = await auth();
@@ -32,7 +34,21 @@ export default async function TimePage() {
 
   return (
     <>
-      <Header title="Time Tracking" userName={profile?.full_name} userEmail={session?.user?.email} />
+      <Header title="Time Tracking" userName={profile?.full_name} userEmail={session?.user?.email}>
+        <ImportDialog
+          config={timeEntryImportConfig}
+          userId={session!.user.id}
+          fkData={[
+            {
+              tableName: "projects",
+              entries: safeProjects.map((p: { name: string; id: string }) => ({
+                display: p.name,
+                id: p.id,
+              })),
+            },
+          ]}
+        />
+      </Header>
       <div className="p-4 md:p-6">
         <TimePageClient
           projects={safeProjects}

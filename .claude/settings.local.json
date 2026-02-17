@@ -6,7 +6,8 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(node -e:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { ClientTable } from "@/components/clients/client-table";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { clientImportConfig } from "@/lib/import/configs/clients";
 
 export default async function ClientsPage() {
   const session = await auth();
@@ -22,6 +24,7 @@ export default async function ClientsPage() {
   return (
     <>
       <Header title="Clients" userName={profile?.full_name} userEmail={session?.user?.email}>
+        <ImportDialog config={clientImportConfig} userId={session!.user.id} />
         <NewClientDialog userId={session!.user.id} />
       </Header>
       <div className="p-4 md:p-6">

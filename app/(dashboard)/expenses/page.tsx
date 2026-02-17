@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { ExpenseTable } from "@/components/expenses/expense-table";
 import { NewExpenseDialog } from "@/components/expenses/new-expense-dialog";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { expenseImportConfig } from "@/lib/import/configs/expenses";
 
 export default async function ExpensesPage() {
   const session = await auth();
@@ -24,9 +26,35 @@ export default async function ExpensesPage() {
     .select("name")
     .eq("user_id", session!.user.id);
 
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .in("status", ["not_started", "in_progress"])
+    .order("name");
+
   return (
     <>
       <Header title="Expenses" userName={profile?.full_name} userEmail={session?.user?.email}>
+        <ImportDialog
+          config={expenseImportConfig}
+          userId={session!.user.id}
+          fkData={[
+            {
+              tableName: "expense_categories",
+              entries: (categories ?? []).map((c) => ({
+                display: c.name,
+                id: c.name,
+              })),
+            },
+            {
+              tableName: "projects",
+              entries: (projects ?? []).map((p) => ({
+                display: p.name,
+                id: p.id,
+              })),
+            },
+          ]}
+        />
         <NewExpenseDialog userId={session!.user.id} />
       </Header>
       <div className="p-4 md:p-6">

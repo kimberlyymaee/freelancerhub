@@ -341,6 +341,28 @@ export function InvoiceDetail({
             )}
           </div>
 
+          {/* Payment Methods */}
+          {profile?.payment_methods?.filter((pm) => pm.enabled).length ? (
+            <div>
+              <Separator className="mb-4" />
+              <p className="text-xs text-muted-foreground uppercase mb-2">
+                Payment Methods
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {profile.payment_methods
+                  .filter((pm) => pm.enabled)
+                  .map((pm, index) => (
+                    <div key={index} className="text-sm">
+                      <p className="font-medium">{pm.label}</p>
+                      <p className="text-muted-foreground whitespace-pre-line">
+                        {pm.details}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Notes */}
           {invoice.notes && (
             <div>

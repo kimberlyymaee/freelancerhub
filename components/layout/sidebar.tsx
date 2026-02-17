@@ -77,7 +77,7 @@ export function Sidebar({ userName, userEmail }: SidebarProps) {
           <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
         </div>
         <form action={signOut}>
-          <Button variant="ghost" size="sm" className="w-full justify-start" type="submit">
+          <Button variant="ghost" size="sm" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10" type="submit">
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </Button>

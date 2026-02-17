@@ -85,12 +85,12 @@ export function ManualEntry({ projects, userId, onSave }: ManualEntryProps) {
   }
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Manual Entry</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+      <CardContent className="flex-1 flex flex-col">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 flex flex-col flex-1">
           <div className="space-y-2">
             <Label>Project</Label>
             <Select
@@ -161,7 +161,7 @@ export function ManualEntry({ projects, userId, onSave }: ManualEntryProps) {
             </Label>
           </div>
 
-          <Button type="submit" size="sm" disabled={isSubmitting} className="w-full">
+          <Button type="submit" size="sm" disabled={isSubmitting} className="w-full mt-auto">
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

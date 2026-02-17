@@ -96,7 +96,7 @@ export function MobileNav({ userName, userEmail }: MobileNavProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start"
+              className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
               type="submit"
             >
               <LogOut className="mr-2 h-4 w-4" />

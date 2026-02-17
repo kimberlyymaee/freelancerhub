@@ -21,13 +21,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pencil, Trash2, Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { STATUS_COLORS } from "@/lib/constants";
 import type { Project, TimeEntry } from "@/lib/types";
 import { ProjectForm } from "./project-form";
+
+const PAGE_SIZE = 10;
 
 interface ProjectDetailProps {
   project: Project & { client?: { id: string; company_name: string } | null };
@@ -47,9 +51,21 @@ export function ProjectDetail({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [timePage, setTimePage] = useState(0);
+  const [entries, setEntries] = useState(timeEntries);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editHours, setEditHours] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editBillable, setEditBillable] = useState(true);
+  const [savingEntry, setSavingEntry] = useState(false);
 
-  const totalHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
-  const billableHours = timeEntries
+  const timeTotalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  const paginatedTimeEntries = entries.slice(timePage * PAGE_SIZE, (timePage + 1) * PAGE_SIZE);
+
+  const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
+  const billableHours = entries
     .filter((e) => e.is_billable)
     .reduce((sum, e) => sum + e.hours, 0);
   const totalBilled = billableHours * (project.rate || 0);
@@ -73,30 +89,68 @@ export function ProjectDetail({
     }
   }
 
-  function formatStatus(status: string): string {
-    return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  function openEditEntry(entry: TimeEntry) {
+    setEditEntry(entry);
+    setEditDate(entry.date);
+    setEditHours(entry.hours.toString());
+    setEditDescription(entry.description || "");
+    setEditBillable(entry.is_billable);
   }
 
-  if (editing) {
-    return (
-      <div className="max-w-lg">
-        <div className="mb-4">
-          <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-            Cancel
-          </Button>
-        </div>
-        <ProjectForm
-          clients={clients}
-          userId={userId}
-          defaultRate={defaultRate}
-          project={project}
-          onSuccess={() => {
-            setEditing(false);
-            router.refresh();
-          }}
-        />
-      </div>
-    );
+  async function handleEditEntry() {
+    if (!editEntry) return;
+    const hours = Number(editHours);
+    if (!hours || hours <= 0) {
+      toast.error("Enter valid hours");
+      return;
+    }
+    setSavingEntry(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("time_entries")
+      .update({
+        date: editDate,
+        hours: Math.round(hours * 100) / 100,
+        description: editDescription || null,
+        is_billable: editBillable,
+      })
+      .eq("id", editEntry.id);
+
+    if (error) {
+      toast.error("Failed to update: " + error.message);
+    } else {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === editEntry.id
+            ? { ...e, date: editDate, hours, description: editDescription || null, is_billable: editBillable }
+            : e
+        )
+      );
+      toast.success("Entry updated");
+      setEditEntry(null);
+    }
+    setSavingEntry(false);
+  }
+
+  async function handleDeleteEntry() {
+    if (!deleteEntryId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("time_entries")
+      .delete()
+      .eq("id", deleteEntryId);
+
+    if (error) {
+      toast.error("Failed to delete: " + error.message);
+    } else {
+      setEntries((prev) => prev.filter((e) => e.id !== deleteEntryId));
+      toast.success("Entry deleted");
+    }
+    setDeleteEntryId(null);
+  }
+
+  function formatStatus(status: string): string {
+    return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   }
 
   return (
@@ -179,7 +233,7 @@ export function ProjectDetail({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">
-            Time Entries ({timeEntries.length})
+            Time Entries ({entries.length})
           </CardTitle>
           <Button
             variant="outline"
@@ -191,11 +245,12 @@ export function ProjectDetail({
           </Button>
         </CardHeader>
         <CardContent>
-          {timeEntries.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No time entries yet.
             </p>
           ) : (
+            <>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -204,10 +259,11 @@ export function ProjectDetail({
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Hours</TableHead>
                     <TableHead>Billable</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timeEntries.map((entry) => (
+                  {paginatedTimeEntries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell>{formatDate(entry.date)}</TableCell>
                       <TableCell>{entry.description || "-"}</TableCell>
@@ -223,16 +279,77 @@ export function ProjectDetail({
                           <Badge variant="secondary">No</Badge>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditEntry(entry)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setDeleteEntryId(entry.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+            {entries.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {timePage * PAGE_SIZE + 1}–{Math.min((timePage + 1) * PAGE_SIZE, entries.length)} of {entries.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setTimePage((p) => p - 1)} disabled={timePage === 0}>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">{timePage + 1} / {timeTotalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setTimePage((p) => p + 1)} disabled={timePage >= timeTotalPages - 1}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Delete Dialog */}
+      {/* Edit Project Dialog */}
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Update the details for {project.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <ProjectForm
+            clients={clients}
+            userId={userId}
+            defaultRate={defaultRate}
+            project={project}
+            onSuccess={() => {
+              setEditing(false);
+              router.refresh();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Project Dialog */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent>
           <DialogHeader>
@@ -249,6 +366,67 @@ export function ProjectDetail({
             <Button variant="destructive" onClick={handleDelete}>
               Delete
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={!!editEntry} onOpenChange={() => setEditEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Time Entry</DialogTitle>
+            <DialogDescription>
+              Update the details for this time entry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Hours</Label>
+                <Input type="number" step="0.25" min="0.1" value={editHours} onChange={(e) => setEditHours(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="What did you work on?" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-entry-billable"
+                checked={editBillable}
+                onChange={(e) => setEditBillable(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="edit-entry-billable" className="text-sm font-normal">Billable</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEntry(null)}>Cancel</Button>
+            <Button onClick={handleEditEntry} disabled={savingEntry}>
+              {savingEntry && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Time Entry Confirmation */}
+      <Dialog open={!!deleteEntryId} onOpenChange={() => setDeleteEntryId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Time Entry</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this time entry? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteEntryId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteEntry}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
